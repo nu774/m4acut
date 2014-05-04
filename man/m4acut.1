@@ -1,0 +1,88 @@
+.TH "M4ACUT" "1" "May, 2014" "" ""
+.SH NAME
+.PP
+m4acut \- losslessly and gaplessly cut M4A(AAC in MP4) files
+.SH SYNOPSIS
+.PP
+\f[B]m4acut\f[] [OPTIONS] [FILE]
+.SH DESCRIPTION
+.PP
+\f[B]m4acut\f[] reads M4A files and extracts a portion of the audio into
+a new file.
+When chapter mode is specified, it can automatically extract each
+chapter into files, setting title tag and track tag from chapter
+title/number.
+.PP
+Since \f[B]m4acut\f[] takes priming /padding samples into account and
+writes iTunSMPB tag properly, \f[B]m4acut\f[] allows any cut point (not
+restricted to AAC frame boundaries) and the resulting files can be
+played gaplessly.
+.SH OPTIONS
+.TP
+.B \-h, \-\-help
+Show command help
+.RS
+.RE
+.TP
+.B \-v, \-\-version
+Show version number
+.RS
+.RE
+.TP
+.B \-o, \-\-output
+Specify output filename.
+Ignored on chapter mode.
+Otherwise required.
+.RS
+.RE
+.TP
+.B \-s, \-\-start <[[hh:]mm:]ss[.ss..]|ns>
+Specify cut start point in either time or number of samples.
+When not given, 0 is assumed.
+.RS
+.TP
+.B Example:
+.TP
+.B 588s
+588 samples
+.RS
+.RE
+.RS
+.RE
+.TP
+.B 23.46
+23.46 secs
+.RS
+.RE
+.RS
+.RE
+.TP
+.B 15
+15 secs
+.RS
+.RE
+.RS
+.RE
+.TP
+.B 39:12
+39m 12s
+.RS
+.RE
+.RS
+.RE
+.RE
+.TP
+.B \-e, \-\-end <[[hh:]mm:]ss[.ss..]|ns>
+Specify cut end point (exclusive).
+When not given, end of input is assumed.
+.RS
+.RE
+.TP
+.B \-c, \-\-chapter\-mode
+Enables chapter mode.
+Splits automatically at each chapter point.
+You cannot use \-c and \-s/\-e at the same time.
+.RS
+.RE
+.SH AUTHORS
+nu774 <honeycomb77@gmail.com>.

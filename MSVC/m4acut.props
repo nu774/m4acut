@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <LSMASH_INCLUDE />
+    <LSMASH_LIB>liblsmash.lib</LSMASH_LIB>
+    <LSMASH_LIBDIR />
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemDefinitionGroup />
+  <ItemGroup>
+    <BuildMacro Include="LSMASH_INCLUDE">
+      <Value>$(LSMASH_INCLUDE)</Value>
+    </BuildMacro>
+    <BuildMacro Include="LSMASH_LIB">
+      <Value>$(LSMASH_LIB)</Value>
+    </BuildMacro>
+    <BuildMacro Include="LSMASH_LIBDIR">
+      <Value>$(LSMASH_LIBDIR)</Value>
+    </BuildMacro>
+  </ItemGroup>
+</Project>

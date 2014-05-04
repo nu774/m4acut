@@ -1,0 +1,27 @@
+ACLOCAL_AMFLAGS = -I m4
+AUTOMAKE_OPTIONS = subdir-objects
+
+bin_PROGRAMS = m4acut
+
+dist_man_MANS = man/m4acut.1
+
+m4acut_SOURCES = src/main.cpp
+
+if AAC_PLATFORM_WIN32
+    m4acut_SOURCES += src/compat_win32.c
+endif
+
+if AAC_NO_GETOPT_LONG
+    m4acut_SOURCES += missings/getopt.c
+    AM_CPPFLAGS = -Imissings
+endif
+
+
+EXTRA_DIST = \
+    m4/.gitkeep  \
+    src/*.h      \
+    missings/*.c \
+    missings/*.h \
+    MSVC/*.vcxproj \
+    MSVC/*.vcxproj.filters \
+    MSVC/*.sln

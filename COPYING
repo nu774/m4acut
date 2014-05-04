@@ -1,0 +1,18 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: m4acut
+Upstream-Contact: nu774 <honeycomb77@gmail.com>
+Source: https://github.com/nu774/m4acut
+
+
+Files: *
+Copyright: 2014 nu774 <honeycomb77@gmail.com>
+License: Zlib
+
+Files: missings/getopt.c
+Copyright: 2002 Todd C. Miller <Todd.Miller@courtesan.com>
+           2000 The NetBSD Foundation, Inc.
+License: BSD-4-clause
+
+Files: missings/getopt.h
+Copyright: 2000 The NetBSD Foundation, Inc.
+License: BSD-4-clause
