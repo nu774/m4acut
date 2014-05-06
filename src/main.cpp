@@ -114,20 +114,20 @@ bool parse_options(int argc, char **argv, params_t *params)
         case 'h':
             return usage(), false;
         case 'v':
-            fprintf(stderr, "m4acut version %s\n", m4acut_version);
+            std::fprintf(stderr, "m4acut version %s\n", m4acut_version);
             std::exit(0);
         case 'o':
             params->ofilename = optarg;
             break;
         case 's':
             if (!parse_timespec(optarg, &params->start)) {
-                fputs("ERROR: malformed timespec for -s\n", stderr);
+                std::fputs("ERROR: malformed timespec for -s\n", stderr);
                 return false;
             }
             break;
         case 'e':
             if (!parse_timespec(optarg, &params->end)) {
-                fputs("ERROR: malformed timespec for -e\n", stderr);
+                std::fputs("ERROR: malformed timespec for -e\n", stderr);
                 return false;
             }
             break;
@@ -147,11 +147,11 @@ bool parse_options(int argc, char **argv, params_t *params)
     params->ifilename = argv[0];
     if (params->chapter_mode && (params->start.value.samples ||
                                  params->end.value.samples)) {
-        fputs("ERROR: -c and -s/-e are mutually exclusive\n", stderr);
+        std::fputs("ERROR: -c and -s/-e are mutually exclusive\n", stderr);
         return false;
     }
     if (!params->chapter_mode && !params->ofilename) {
-        fputs("ERROR: output filename is required\n", stderr);
+        std::fputs("ERROR: output filename is required\n", stderr);
         return false;
     }
     return true;
@@ -162,14 +162,13 @@ void process_file(M4ATrimmer &trimmer)
     uint64_t au, num_au = trimmer.num_access_units();
     int last_percent = -1;
 
-    fputs("\r                                                  ", stderr);
     for (au = 1; trimmer.copy_next_access_unit(); ++au) {
         int percent = static_cast<int>(au * 100 / num_au);
         if (percent != last_percent)
-            fprintf(stderr, "\r%d%%", percent);
+            std::fprintf(stderr, "\r%d%%", percent);
     }
     trimmer.finish_write(0, 0);
-    fputs("...done\n", stderr);
+    std::fputs("...done\n", stderr);
 }
 
 } // end of empty namespace
