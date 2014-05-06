@@ -486,7 +486,8 @@ private:
             m_input.chapters.push_back(p);
         }
         if (start_time && !m_input.track.media_offset) {
-            m_input.track.media_offset = m_input.track.timescale() * start_time;
+            m_input.track.media_offset =
+                m_input.track.timescale() * start_time + .5;
         }
     }
     void add_audio_track()
