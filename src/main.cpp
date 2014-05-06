@@ -162,7 +162,7 @@ void process_file(M4ATrimmer &trimmer)
     int64_t last = 0;
     for (au = 1; trimmer.copy_next_access_unit(); ++au) {
         int64_t now = aa_timer();
-        if (now - last > 100) {
+        if (now - last > 1000) {
             int percent = static_cast<int>(au * 100 / num_au);
             std::fprintf(stderr, "\r%d%%", percent);
             last = now;
