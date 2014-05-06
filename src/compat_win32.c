@@ -5,17 +5,12 @@
 #if HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#if HAVE_STDINT_H
-#  include <stdint.h>
-#endif
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include <assert.h>
-#include <io.h>
-#include <fcntl.h>
-#include <share.h>
+#include <sys/timeb.h>
 #include "compat.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -28,6 +23,17 @@ typedef struct
 extern
 int __wgetmainargs(int *, wchar_t ***, wchar_t ***, int, _startupinfo *);
 
+int64_t aa_timer(void)
+{
+#if HAVE_STRUCT___TIMEB64
+    struct __timeb64 tv;
+    _ftime64(&tv);
+#else
+    struct timeb tv;
+    ftime(&tv);
+#endif
+    return (int64_t)tv.time * 1000 + tv.millitm;
+}
 static
 int codepage_decode_wchar(int codepage, const char *from, wchar_t **to)
 {

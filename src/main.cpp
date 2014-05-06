@@ -5,9 +5,7 @@
 #if HAVE_CONFIG_H
 # include "config.h"
 #endif
-#if HAVE_STDINT_H
-# include <stdint.h>
-#endif
+#include <stdint.h>
 #include <cstdio>
 #include <cstdlib>
 #include <clocale>
@@ -160,15 +158,18 @@ bool parse_options(int argc, char **argv, params_t *params)
 void process_file(M4ATrimmer &trimmer)
 {
     uint64_t au, num_au = trimmer.num_access_units();
-    int last_percent = -1;
 
+    int64_t last = 0;
     for (au = 1; trimmer.copy_next_access_unit(); ++au) {
-        int percent = static_cast<int>(au * 100 / num_au);
-        if (percent != last_percent)
+        int64_t now = aa_timer();
+        if (now - last > 100) {
+            int percent = static_cast<int>(au * 100 / num_au);
             std::fprintf(stderr, "\r%d%%", percent);
+            last = now;
+        }
     }
     trimmer.finish_write(0, 0);
-    std::fputs("...done\n", stderr);
+    std::fputs("\r100%...done\n", stderr);
 }
 
 } // end of empty namespace

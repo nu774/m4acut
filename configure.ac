@@ -15,8 +15,9 @@ AC_PROG_CXX
 AC_LANG([C++])
 AX_CXX_COMPILE_STDCXX_11(noext,mandatory)
 
-AC_CHECK_FUNCS([_vscprintf])
-AC_CHECK_FUNC(getopt_long)
+AC_CHECK_HEADER([stdint.h])
+AC_CHECK_FUNCS([_vscprintf getopt_long])
+AC_CHECK_TYPES([struct __timeb64],[],[],[[#include <sys/timeb.h>]])
 AM_CONDITIONAL([AAC_NO_GETOPT_LONG],[test "$ac_cv_func_getopt_long" != "yes"])
 AC_SEARCH_LIBS([lsmash_get_tyrant_chapter],[lsmash],,
                [AC_MSG_ERROR(L-SMASH version 1.10.0 or greater required)])

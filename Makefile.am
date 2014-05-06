@@ -7,6 +7,10 @@ dist_man_MANS = man/m4acut.1
 
 m4acut_SOURCES = src/main.cpp
 
+if AAC_PLATFORM_POSIX
+    m4acut_SOURCES += src/compat_posix.c
+endif
+
 if AAC_PLATFORM_WIN32
     m4acut_SOURCES += src/compat_win32.c
 endif
@@ -18,10 +22,11 @@ endif
 
 
 EXTRA_DIST = \
-    m4/.gitkeep  \
-    src/*.h      \
-    missings/*.c \
-    missings/*.h \
-    MSVC/*.vcxproj \
-    MSVC/*.vcxproj.filters \
+    man/m4acut.1                    \
+    m4/ax_cxx_compile_stdcxx_11.m4  \
+    src/*.h                         \
+    missings/*.c                    \
+    missings/*.h                    \
+    MSVC/*.vcxproj                  \
+    MSVC/*.vcxproj.filters          \
     MSVC/*.sln

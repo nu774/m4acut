@@ -9,6 +9,8 @@
 extern "C" {
 #endif
 
+int64_t aa_timer(void);
+
 #ifndef _WIN32
 # define aa_getmainargs(argc, argv) (void)(0)
 # define aa_fprintf fprintf
