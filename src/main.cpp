@@ -81,8 +81,6 @@ void usage()
 "                          588s      : 588 samples\n"
 "                          1:23.586  : 1m 23.586s\n"
 "                          15        : 15s\n"
-"                        Note that you have to count in half the sample rate\n"
-"                        in case of dual-rate HE-AAC (1 means 22050s).\n"
 " -e, --end <[[hh:]mm:]ss[.ss..]|ns>\n"
 "                        Specify cut end point (exclusive).\n"
 "                        When not given, end of input is assumed.\n"

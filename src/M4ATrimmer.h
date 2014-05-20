@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 #include <list>
+#include <numeric>
 #include <stdexcept>
 extern "C" {
 #define LSMASH_DEMUXER_ENABLED
@@ -44,6 +45,52 @@ public:
     }
 };
 
+class MP4Edits {
+    typedef std::pair<int64_t, int64_t> entry_t;
+    std::vector<entry_t> m_edits;
+public:
+    void add_entry(int64_t offset, int64_t duration)
+    {
+        m_edits.push_back(std::make_pair(offset, duration));
+    }
+    size_t count() const { return m_edits.size(); }
+    uint64_t total_duration() const
+    {
+        return std::accumulate(m_edits.begin(), m_edits.end(), 0ULL,
+                               [](uint64_t n, const entry_t &e) -> uint64_t {
+                                    return n + e.second;
+                               });
+    }
+    int64_t offset(unsigned edit_index) const
+    {
+        return m_edits[edit_index].first;
+    }
+    int64_t duration(unsigned edit_index) const
+    {
+        return m_edits[edit_index].second;
+    }
+    unsigned edit_for_position(int64_t position, int64_t *offset=0) const
+    {
+        int64_t acc = 0;
+        int64_t off = 0;
+        size_t  i = 0;
+        for (; i < m_edits.size(); ++i) {
+            off =  position - acc;
+            acc += m_edits[i].second;
+            if (position < acc)
+                break;
+        }
+        if (offset) *offset = off;
+        return i == m_edits.size() ? i - 1 : i;
+    }
+    int64_t media_offset_for_position(int64_t position) const
+    {
+        int64_t  off;
+        unsigned edit = edit_for_position(position, &off);
+        return offset(edit) + off;
+    }
+};
+
 class M4ATrimmer {
     struct FileParameters: lsmash_file_parameters_t {
         FileParameters(const std::string &filename, int open_mode)
@@ -65,18 +112,9 @@ class M4ATrimmer {
                                          *    upsampled timescale
                                          * 0: oterwise
                                          */
-        uint32_t media_offset;          /*
-                                         * start offset in the media
-                                         * in media timescale
-                                         * downsampled if dual-rate SBR
-                                         */
-        uint64_t media_valid_duration;  /* 
-                                         * valid duration in the media
-                                         * in media timescale
-                                         * downsampled if dual-rate SBR
-                                         */
+        MP4Edits edits;
 
-        Track(): upsampled(0), media_offset(0), media_valid_duration(0)
+        Track(): upsampled(0)
         {
             memset(&track_params, 0, sizeof track_params);
             memset(&media_params, 0, sizeof media_params);
@@ -92,9 +130,7 @@ class M4ATrimmer {
         }
         uint64_t duration() const
         {
-            if (media_valid_duration)
-                return media_valid_duration;
-            return (media_params.duration >> upsampled) - media_offset;
+            return edits.total_duration();
         }
     };
     struct Input {
@@ -161,6 +197,11 @@ public:
             lsmash_cleanup_itunes_metadata(&item);
         }
         fetch_chapters();
+        if (!m_input.track.edits.count()) {
+            int64_t duration =
+                m_input.track.media_params.duration >> m_input.track.upsampled;
+            m_input.track.edits.add_entry(0, duration);
+        }
     }
     void open_output(const std::string &filename)
     {
@@ -197,40 +238,60 @@ public:
     void select_cut_point(const TimeSpec &startspec,
                           const TimeSpec &endspec)
     {
-        int32_t off = m_input.track.media_offset;
-
         int64_t start = startspec.is_samples ?
-            startspec.value.samples
+            startspec.value.samples >> m_input.track.upsampled
           : startspec.value.seconds * m_input.track.timescale() + .5;
         int64_t end = endspec.is_samples ?
-            endspec.value.samples
+            endspec.value.samples >> m_input.track.upsampled
           : endspec.value.seconds * m_input.track.timescale() + .5;
 
         if (start > m_input.track.duration())
             throw std::runtime_error("the start position for trimming exceeds "
                                      "the length of input");
-        m_cut_start = std::max(static_cast<int64_t>(0),
-                               start + off - 1024) / 1024;
-        m_output.track.media_offset = start + off - m_cut_start * 1024;
-
         if (end <= 0)
             end = m_input.track.duration();
         if (end <= start)
             throw std::runtime_error("the end position of trimming is before "
                                      "the start position");
-        m_cut_end = (end + off + 1023) / 1024;
-        /* for the sake of SBR, we extend padding if len(padding) < 481 */
-        if (m_cut_end * 1024 - (end + off) < 481)
-            ++m_cut_end;
+
+        const MP4Edits &edits = m_input.track.edits;
+        int64_t media_start = edits.media_offset_for_position(start);
+        int64_t media_end   = edits.media_offset_for_position(end - 1) + 1;
+        m_cut_start = m_current_au =
+            std::max(static_cast<int64_t>(0), media_start - 1024) / 1024;
+        m_cut_end = (media_end + 1023) / 1024 + 1;
         uint64_t num_au = m_input.track.num_access_units();
         if (m_cut_end > num_au) m_cut_end = num_au;
 
-        int64_t duration_plus_padding =
-            m_cut_end * 1024 - m_output.track.media_offset;
-        m_output.track.media_valid_duration =
-            std::min(end - start, duration_plus_padding);
+        unsigned i = edits.edit_for_position(start);
+        unsigned j = edits.edit_for_position(end - 1);
+        int64_t start_edit_off = edits.offset(i);
+        int64_t start_edit_end = edits.offset(i) + edits.duration(i);
 
-        m_current_au = m_cut_start;
+        int64_t new_start_edit_off = media_start - m_cut_start * 1024;
+        int64_t new_start_edit_duration =
+            std::min(media_end, start_edit_end) - media_start;
+        int64_t edit_shift = new_start_edit_off - start_edit_off
+                           + new_start_edit_duration - edits.duration(i);
+
+        m_output.track.edits.add_entry(new_start_edit_off,
+                                       new_start_edit_duration);
+        for (unsigned k = i + 1; k < j; ++k)
+            m_output.track.edits.add_entry(edits.offset(k) + edit_shift,
+                                           edits.duration(k));
+        if (i < j)
+            m_output.track.edits.add_entry(edits.offset(j) + edit_shift,
+                                           media_end - edits.offset(j));
+
+        unsigned count = m_output.track.edits.count();
+        for (unsigned i = 0; i < count; ++i) {
+            lsmash_edit_t edit = { 0 };
+            edit.duration   = m_output.track.edits.duration(i);
+            edit.start_time = m_output.track.edits.offset(i);
+            edit.rate       = ISOM_EDIT_MODE_NORMAL;
+            lsmash_create_explicit_timeline_map(m_output.movie.get(),
+                                                m_output.track.id(), edit);
+        }
     }
     void select_chapter(unsigned nth)
     {
@@ -256,12 +317,8 @@ public:
             lsmash_get_sample_from_media_timeline(m_input.movie.get(),
                                                   m_input.track.id(),
                                                   m_current_au + 1);
-        if (!sample) {
-            /* treat as EOF, update duration */
-            m_output.track.media_valid_duration =
-                m_current_au * 1024 - m_output.track.media_offset;
+        if (!sample)
             return false;
-        }
         sample->dts = sample->cts = (m_current_au - m_cut_start) * 1024;
         /*
          * XXX: leaks a sample when lsmash_append_sample() fails.
@@ -276,7 +333,8 @@ public:
     {
         DieIF(lsmash_flush_pooled_samples(m_output.movie.get(),
                                           m_output.track.id(), 1024));
-        write_iTunSMPB();
+        if (m_output.track.edits.count() == 1)
+            write_iTunSMPB();
         lsmash_adhoc_remux_t param;
         param.func = cb;
         param.buffer_size = 4 * 1024 * 1024;
@@ -342,15 +400,18 @@ private:
         if (au_duration == 2048)
             t->upsampled = 1;
 
-        if (lsmash_count_explicit_timeline_map(mov, track_id) == 1) {
-            lsmash_edit_t edit;
-            DieIF(lsmash_get_explicit_timeline_map(mov, track_id, 1, &edit));
-            t->media_offset = edit.start_time >> t->upsampled;
-            if (edit.duration > 0 && edit.duration < t->track_params.duration) {
+        if (m_input.movie_params.timescale >= t->media_params.timescale) {
+            uint32_t nedits =
+                lsmash_count_explicit_timeline_map(mov, track_id);
+            for (uint32_t i = 1; i <= nedits; ++i) {
+                lsmash_edit_t edit;
+                DieIF(lsmash_get_explicit_timeline_map(mov, track_id,
+                                                       i, &edit));
                 double duration = static_cast<double>(edit.duration);
                 duration /= m_input.movie_params.timescale;
-                duration *= t->timescale();
-                t->media_valid_duration = static_cast<uint64_t>(duration + 0.5);
+                duration *= t->media_params.timescale;
+                t->edits.add_entry(edit.start_time >> t->upsampled,
+                                   int64_t(duration + .5) >> t->upsampled);
             }
         }
     }
@@ -392,6 +453,9 @@ private:
         } else
             return true;
 
+        if (m_input.track.edits.count())
+            return true;
+
         std::stringstream ss(std::string(s, len));
         uint32_t junk, priming, padding;
         uint64_t duration;
@@ -400,9 +464,9 @@ private:
                >> std::hex >> padding
                >> std::hex >> duration)
         {
-            unsigned shift = m_input.track.upsampled;
-            m_input.track.media_offset = priming >> shift;
-            m_input.track.media_valid_duration = duration >> shift;
+            priming  >>= m_input.track.upsampled;
+            duration >>= m_input.track.upsampled;
+            m_input.track.edits.add_entry(priming, duration);
         }
         return true;
     }
@@ -481,15 +545,19 @@ private:
             auto p = std::make_pair(ss - start_time, std::string(title));
             m_input.chapters.push_back(p);
         }
-        if (start_time && !m_input.track.media_offset) {
-            m_input.track.media_offset =
-                m_input.track.timescale() * start_time + .5;
+        if (start_time && !m_input.track.edits.count()) {
+            int64_t off = m_input.track.timescale() * start_time + .5;
+            int64_t duration =
+                m_input.track.media_params.duration >> m_input.track.upsampled;
+            duration -= off;
+            m_input.track.edits.add_entry(off, duration);
         }
     }
     void add_audio_track()
     {
         lsmash_root_t *mov = m_output.movie.get();
-        m_output.track = m_input.track;
+        m_output.track.track_params = m_input.track.track_params;
+        m_output.track.media_params = m_input.track.media_params;
 
         uint32_t trakid;
         DieIF(!(trakid =
@@ -535,12 +603,15 @@ private:
         char buf[256];
 
         uint64_t total_duration = (m_current_au - m_cut_start) * 1024;
-        uint32_t padding =
-            total_duration - m_output.track.media_offset 
-                           - m_output.track.media_valid_duration;
-        std::sprintf(buf, fmt, m_output.track.media_offset, padding,
-                     int(m_output.track.media_valid_duration >> 32),
-                     int(m_output.track.media_valid_duration & 0xffffffff));
+        unsigned offset   = m_output.track.edits.offset(0);
+        uint64_t duration = m_output.track.edits.duration(0); 
+        int32_t padding = total_duration - offset - duration;
+        if (padding < 0) {
+            padding = 0;
+            duration += padding;
+        }
+        std::sprintf(buf, fmt, offset, padding, int(duration >> 32),
+                     int(duration & 0xffffffff));
 
         lsmash_itunes_metadata_t tag;
         memset(&tag, 0, sizeof tag);

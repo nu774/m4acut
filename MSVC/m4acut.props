@@ -3,7 +3,7 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros">
     <LSMASH_INCLUDE />
-    <LSMASH_LIB>liblsmash.lib</LSMASH_LIB>
+    <LSMASH_LIB>lsmash.lib</LSMASH_LIB>
     <LSMASH_LIBDIR />
   </PropertyGroup>
   <PropertyGroup />
