@@ -44,7 +44,7 @@ public:
     }
 };
 
-struct M4ATrimmer {
+class M4ATrimmer {
     struct FileParameters: lsmash_file_parameters_t {
         FileParameters(const std::string &filename, int open_mode)
         {
