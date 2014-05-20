@@ -194,10 +194,6 @@ public:
         return m_input.chapters;
     }
 
-    /*
-     * start_sec: in seconds, inclusive
-     * end_sec:   in seconds, exclusive
-     */
     void select_cut_point(const TimeSpec &startspec,
                           const TimeSpec &endspec)
     {
