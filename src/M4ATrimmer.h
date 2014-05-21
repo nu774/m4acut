@@ -123,12 +123,41 @@ public:
         }
         m_edits.swap(new_edits);
     }
-    void crop(int64_t media_start, int64_t media_end,
-              int64_t presentation_offset)
+    void crop(int64_t start, int64_t end)
     {
-        trim_end(media_end);
-        shift((media_start + presentation_offset) * -1);
-        shift(presentation_offset);
+        std::vector<entry_t> new_edits;
+        int64_t acc = 0;
+        for (auto e = m_edits.begin(); e != m_edits.end(); ++e) {
+            if (acc < end && acc + e->second > start) {
+                entry_t edit = *e;
+                if (acc < start) {
+                    int64_t trim = start - acc;
+                    edit.first  += trim;
+                    edit.second -= trim;
+                }
+                if (acc + e->second > end)
+                    edit.second -= acc + e->second - end;
+                new_edits.push_back(edit);
+            }
+            acc += e->second;
+        }
+        m_edits.swap(new_edits);
+    }
+    int64_t minimum_media_position()
+    {
+        int64_t candidate = std::numeric_limits<int64_t>::max();
+        for (auto e = m_edits.begin(); e != m_edits.end(); ++e)
+            if (e->first < candidate)
+                candidate = e->first;
+        return candidate;
+    }
+    int64_t maximum_media_position()
+    {
+        int64_t candidate = 0;
+        for (auto e = m_edits.begin(); e != m_edits.end(); ++e)
+            if (e->first + e->second > candidate)
+                candidate = e->first + e->second;
+        return candidate;
     }
 };
 
@@ -295,18 +324,19 @@ public:
             throw std::runtime_error("the end position of trimming is before "
                                      "the start position");
 
-        const MP4Edits &edits = m_input.track.edits;
-        int64_t media_start = edits.media_offset_for_position(start);
-        int64_t media_end   = edits.media_offset_for_position(end - 1) + 1;
+        m_output.track.edits = m_input.track.edits;
+        MP4Edits &edits = m_output.track.edits;
+        edits.crop(start, end);
+        int64_t media_start = edits.minimum_media_position();
+        int64_t media_end   = edits.maximum_media_position();
         m_cut_start = m_current_au =
             std::max(static_cast<int64_t>(0), media_start - 1024) / 1024;
         m_cut_end = (media_end + 1023) / 1024 + 1;
         uint64_t num_au = m_input.track.num_access_units();
         if (m_cut_end > num_au) m_cut_end = num_au;
+        if (m_cut_start > 0)
+            edits.shift(-1 * m_cut_start * 1024);
 
-        m_output.track.edits = m_input.track.edits;
-        m_output.track.edits.crop(m_cut_start * 1024, media_end,
-                                  media_start - m_cut_start * 1024);
         unsigned count = m_output.track.edits.count();
         for (unsigned i = 0; i < count; ++i) {
             lsmash_edit_t edit = { 0 };
