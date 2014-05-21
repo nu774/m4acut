@@ -69,6 +69,9 @@ public:
     {
         return m_edits[edit_index].second;
     }
+    /*
+     * get edit index for edit entry corresponds to presentation position
+     */
     unsigned edit_for_position(int64_t position, int64_t *offset=0) const
     {
         int64_t acc = 0;
@@ -83,11 +86,49 @@ public:
         if (offset) *offset = off;
         return i == m_edits.size() ? i - 1 : i;
     }
+    /*
+     * get offset in media corresponds to presentation position
+     */
     int64_t media_offset_for_position(int64_t position) const
     {
         int64_t  off;
         unsigned edit = edit_for_position(position, &off);
         return offset(edit) + off;
+    }
+    void shift(int64_t offset)
+    {
+        std::vector<entry_t> new_edits;
+        for (auto e = m_edits.begin(); e != m_edits.end(); ++e) {
+            entry_t edit = *e;
+            edit.first = edit.first + offset;
+            if (edit.first < 0) {
+                edit.second += edit.first;
+                edit.first = 0;
+            }
+            if (edit.second > 0)
+                new_edits.push_back(edit);
+        }
+        m_edits.swap(new_edits);
+    }
+    void trim_end(int64_t offset)
+    {
+        std::vector<entry_t> new_edits;
+        for (auto e = m_edits.begin(); e != m_edits.end(); ++e) {
+            entry_t edit = *e;
+            if (edit.first < offset) {
+                if (edit.first + edit.second > offset)
+                    edit.second = offset - edit.first;
+                new_edits.push_back(edit);
+            }
+        }
+        m_edits.swap(new_edits);
+    }
+    void crop(int64_t media_start, int64_t media_end,
+              int64_t presentation_offset)
+    {
+        trim_end(media_end);
+        shift((media_start + presentation_offset) * -1);
+        shift(presentation_offset);
     }
 };
 
@@ -263,26 +304,9 @@ public:
         uint64_t num_au = m_input.track.num_access_units();
         if (m_cut_end > num_au) m_cut_end = num_au;
 
-        unsigned i = edits.edit_for_position(start);
-        unsigned j = edits.edit_for_position(end - 1);
-        int64_t start_edit_off = edits.offset(i);
-        int64_t start_edit_end = edits.offset(i) + edits.duration(i);
-
-        int64_t new_start_edit_off = media_start - m_cut_start * 1024;
-        int64_t new_start_edit_duration =
-            std::min(media_end, start_edit_end) - media_start;
-        int64_t edit_shift = new_start_edit_off - start_edit_off
-                           + new_start_edit_duration - edits.duration(i);
-
-        m_output.track.edits.add_entry(new_start_edit_off,
-                                       new_start_edit_duration);
-        for (unsigned k = i + 1; k < j; ++k)
-            m_output.track.edits.add_entry(edits.offset(k) + edit_shift,
-                                           edits.duration(k));
-        if (i < j)
-            m_output.track.edits.add_entry(edits.offset(j) + edit_shift,
-                                           media_end - edits.offset(j));
-
+        m_output.track.edits = m_input.track.edits;
+        m_output.track.edits.crop(m_cut_start * 1024, media_end,
+                                  media_start - m_cut_start * 1024);
         unsigned count = m_output.track.edits.count();
         for (unsigned i = 0; i < count; ++i) {
             lsmash_edit_t edit = { 0 };
