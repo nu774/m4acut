@@ -464,6 +464,8 @@ private:
                 double duration = static_cast<double>(edit.duration);
                 duration /= m_input.movie_params.timescale;
                 duration *= t->media_params.timescale;
+                if (duration == 0.0)
+                    duration = t->media_params.duration - edit.start_time;
                 t->edits.add_entry(edit.start_time >> t->upsampled,
                                    int64_t(duration + .5) >> t->upsampled);
             }
