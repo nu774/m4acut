@@ -18,7 +18,13 @@
     <ClCompile Include="..\src\compat_win32.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\M4ATrimmer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\MP4Edits.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\missings\getopt.c">
@@ -36,6 +42,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\M4ATrimmer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\MP4Edits.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\version.h">

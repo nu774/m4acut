@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <sys/timeb.h>
+#include <io.h>
 #include "compat.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

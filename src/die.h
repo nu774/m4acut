@@ -12,6 +12,7 @@
         } \
     } while (0)
 
+inline
 void throw_file_error(const std::string &filename, const std::string &msg)
 {
     std::string s = msg + ": " + filename;

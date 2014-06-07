@@ -5,7 +5,7 @@ bin_PROGRAMS = m4acut
 
 dist_man_MANS = man/m4acut.1
 
-m4acut_SOURCES = src/main.cpp
+m4acut_SOURCES = src/M4ATrimmer.cpp src/MP4Edits.cpp src/main.cpp
 
 if AAC_PLATFORM_POSIX
     m4acut_SOURCES += src/compat_posix.c
