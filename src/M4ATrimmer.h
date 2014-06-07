@@ -135,6 +135,11 @@ public:
     }
     bool copy_next_access_unit();
     void finish_write(lsmash_adhoc_remux_callback cb, void *cookie);
+    void shift_edits(int64_t offset)
+    {
+        Track &t = m_input.track;
+        t.edits.shift(offset, t.media_params.duration >> t.upsampled);
+    }
 private:
     std::shared_ptr<lsmash_root_t> new_movie()
     {

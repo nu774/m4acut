@@ -3,6 +3,9 @@
  * For conditions of distribution and use, see copyright notice in COPYING
  */
 
+#if HAVE_CONFIG_H
+# include "config.h"
+#endif
 #include "MP4Edits.h"
 #include <limits>
 #include <numeric>
@@ -30,15 +33,19 @@ unsigned MP4Edits::edit_for_position(int64_t position, int64_t *offset) const
     return i == m_edits.size() ? i - 1 : i;
 }
 
-void MP4Edits::shift(int64_t offset)
+void MP4Edits::shift(int64_t offset, int64_t bound)
 {
     std::vector<entry_t> new_edits;
     for (auto e = m_edits.begin(); e != m_edits.end(); ++e) {
         entry_t edit = *e;
-        edit.first = edit.first + offset;
-        if (edit.first < 0) {
-            edit.second += edit.first;
-            edit.first = 0;
+        if (edit.first >= 0) {
+            edit.first = edit.first + offset;
+            if (edit.first < 0) {
+                edit.second += edit.first;
+                edit.first = 0;
+            }
+            if (edit.first + edit.second > bound)
+                edit.second = bound - edit.first;
         }
         if (edit.second > 0)
             new_edits.push_back(edit);
@@ -55,7 +62,8 @@ void MP4Edits::crop(int64_t start, int64_t end)
             entry_t edit = *e;
             if (acc < start) {
                 int64_t trim = start - acc;
-                edit.first  += trim;
+                if (edit.first >= 0)
+                    edit.first  += trim;
                 edit.second -= trim;
             }
             if (acc + e->second > end)
@@ -69,18 +77,19 @@ void MP4Edits::crop(int64_t start, int64_t end)
 
 int64_t MP4Edits::minimum_media_position()
 {
-    int64_t candidate = std::numeric_limits<int64_t>::max();
+    int64_t candidate = std::numeric_limits<int64_t>::max(),
+            limit     = candidate;
     for (auto e = m_edits.begin(); e != m_edits.end(); ++e)
-        if (e->first < candidate)
+        if (e->first >= 0 && e->first < candidate)
             candidate = e->first;
-    return candidate;
+    return candidate == limit ? 0 : candidate;
 }
 
 int64_t MP4Edits::maximum_media_position()
 {
     int64_t candidate = 0;
     for (auto e = m_edits.begin(); e != m_edits.end(); ++e)
-        if (e->first + e->second > candidate)
+        if (e->first >= 0 && e->first + e->second > candidate)
             candidate = e->first + e->second;
     return candidate;
 }

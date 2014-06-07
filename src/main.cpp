@@ -5,7 +5,7 @@
 #if HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include <stdint.h>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <clocale>
@@ -27,6 +27,7 @@ struct params_t {
     TimeSpec start;
     TimeSpec end;
     bool chapter_mode;
+    int  sbr_delay_fix;
 };
 
 std::string safe_filename(const std::string &s)
@@ -87,6 +88,11 @@ void usage()
 " -c, --chapter-mode     Split automatically at chapter points.\n"
 "                        Title tag and track tag are created from chapter.\n"
 "                        You cannot use -c and -s/-e at the same time.\n"
+" --fix-sbr-delay <1|-1>\n"
+"                        Modify media offset (delay) by the amount of\n"
+"                        SBR decoder delay (=481).\n"
+"                        1:  increase delay.\n"
+"                        -1: decrease delay.\n"
     );
 }
 
@@ -99,6 +105,7 @@ bool parse_options(int argc, char **argv, params_t *params)
         { "start",            required_argument,  0, 's' },
         { "end",              required_argument,  0, 'e' },
         { "chapter-mode",     no_argument,        0, 'c' },
+        { "fix-sbr-delay",    required_argument,  0, 'F' },
         {  0,                 0,                  0,  0  },
     };
 
@@ -129,6 +136,12 @@ bool parse_options(int argc, char **argv, params_t *params)
             break;
         case 'c':
             params->chapter_mode = true;
+            break;
+        case 'F':
+            if (std::sscanf(optarg, "%d", &params->sbr_delay_fix) != 1) {
+                std::fputs("ERROR: invalid arg for --fix-sbr-delay\n", stderr);
+                return false;
+            }
             break;
         default:
             return false;
@@ -184,6 +197,8 @@ int main(int argc, char **argv)
     try {
         M4ATrimmer trimmer;
         trimmer.open_input(params.ifilename);
+        if (params.sbr_delay_fix)
+            trimmer.shift_edits(params.sbr_delay_fix * 481);
         if (!params.chapter_mode) {
             trimmer.open_output(params.ofilename);
             trimmer.select_cut_point(params.start, params.end);

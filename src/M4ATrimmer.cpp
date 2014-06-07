@@ -2,6 +2,9 @@
  * Copyright (C) 2014 nu774
  * For conditions of distribution and use, see copyright notice in COPYING
  */
+#if HAVE_CONFIG_H
+# include "config.h"
+#endif
 #include "M4ATrimmer.h"
 #include <sstream>
 

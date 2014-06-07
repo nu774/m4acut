@@ -43,10 +43,12 @@ public:
     }
     /*
      * slide media position of each edit by the given offset.
-     * when an edit window is slided to the negative direction
+     * when an edit window is slided to negative direction
      * and exceeds the origin, negative part is trimmed out.
+     * Likewise, when an edit window is slided to positive direction and
+     * exceeds the bound, excess portion is trimmed out.
      */
-    void shift(int64_t offset);
+    void shift(int64_t offset, int64_t bound=-1);
     /*
      * crop edits by given presentation positions
      */
