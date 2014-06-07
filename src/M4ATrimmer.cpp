@@ -53,7 +53,7 @@ void M4ATrimmer::open_output(const std::string &filename)
         lsmash_file_parameters_t *ofp = m_output.file_params.get(),
                                  *ifp = m_input.file_params.get();
 
-        ofp->major_brand   = ifp->major_brand;
+        ofp->major_brand   = ISOM_BRAND_TYPE_M4A;
         ofp->minor_version = ifp->minor_version;
         ofp->brands        = ifp->brands;
         ofp->brand_count   = ifp->brand_count;
@@ -61,7 +61,8 @@ void M4ATrimmer::open_output(const std::string &filename)
         DieIF((f = lsmash_set_file(mov, ofp)) == 0);
     }
     {
-        lsmash_movie_parameters_t omp = m_input.movie_params;
+        lsmash_movie_parameters_t omp;
+        lsmash_initialize_movie_parameters(&omp);
         omp.timescale = m_input.track.timescale();
         DieIF(lsmash_set_movie_parameters(mov, &omp));
     }
