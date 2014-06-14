@@ -33,7 +33,7 @@ OPTIONS
 :   Show version number
 
 -o, --output <file>
-:   Specify output filename. Ignored on chapter mode. Otherwise required.
+:   Specify output filename. Ignored when -c/-C is set. Otherwise required.
 
 -s, --start <[[hh:]mm:]ss[.ss..]|ns>
 :   Specify cut start point in either time or number of samples.
@@ -55,4 +55,12 @@ OPTIONS
 
 -c, --chapter-mode
 :   Enables chapter mode. Splits automatically at each chapter point.
-    You cannot use -c and -s/-e at the same time.
+
+-C, --cuesheet <file>
+:   Specify cuesheet and split automatically at each track in it.
+
+--cuesheet-encoding <name>
+:   Specify character encoding name of cuesheet.
+    By default, UTF-8 is assumed.
+
+-c, -C, and -s/-e are Mutually exclusive and cannot be set at the same time.

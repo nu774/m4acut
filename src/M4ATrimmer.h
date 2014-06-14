@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <list>
+#include <map>
 #include <stdexcept>
 extern "C" {
 #define LSMASH_DEMUXER_ENABLED
@@ -113,7 +114,8 @@ class M4ATrimmer {
     Input m_input;
     Output m_output;
     StringPool m_pool;
-    std::vector<lsmash_itunes_metadata_t> m_itunes_metadata;
+    std::map<std::pair<lsmash_itunes_metadata_item, std::string>,
+             lsmash_itunes_metadata_t> m_itunes_metadata;
     uint64_t m_current_au;
     uint64_t m_cut_start;  /* in access unit, inclusive */
     uint64_t m_cut_end;    /* in access unit, exclusive */
@@ -133,6 +135,14 @@ public:
     {
         return m_cut_end - m_cut_start;
     }
+    uint32_t timescale() const
+    {
+        return m_input.track.timescale();
+    }
+    uint64_t duration() const
+    {
+        return m_input.track.duration();
+    }
     bool copy_next_access_unit();
     void finish_write(lsmash_adhoc_remux_callback cb, void *cookie);
     void shift_edits(int64_t offset)
@@ -140,6 +150,11 @@ public:
         Track &t = m_input.track;
         t.edits.shift(offset, t.media_params.duration >> t.upsampled);
     }
+    void set_text_tag(lsmash_itunes_metadata_item fcc, const std::string &s);
+    void set_custom_tag(const std::string &name, const std::string &value);
+    void set_int_tag(lsmash_itunes_metadata_item fcc, uint64_t value);
+    void set_track_tag(unsigned index, unsigned total);
+    void set_disk_tag(unsigned index, unsigned total);
 private:
     std::shared_ptr<lsmash_root_t> new_movie()
     {
@@ -162,9 +177,7 @@ private:
     void fetch_qt_chapters(uint32_t trakid);
     void fetch_nero_chapters();
     void add_audio_track();
-    void write_title_tag(const std::string &title);
-    void write_track_tag(unsigned index, unsigned total);
-    void write_iTunSMPB();
+    void set_iTunSMPB();
 };
 
 #endif

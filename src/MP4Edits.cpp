@@ -44,7 +44,7 @@ void MP4Edits::shift(int64_t offset, int64_t bound)
                 edit.second += edit.first;
                 edit.first = 0;
             }
-            if (edit.first + edit.second > bound)
+            if (bound > 0 && edit.first + edit.second > bound)
                 edit.second = bound - edit.first;
         }
         if (edit.second > 0)

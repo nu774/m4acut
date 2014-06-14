@@ -33,7 +33,8 @@ void M4ATrimmer::open_input(const std::string &filename)
         lsmash_itunes_metadata_t item;
         if (lsmash_get_itunes_metadata(mov, i + 1, &item))
             break;
-        populate_itunes_metadata(item);
+        if (!parse_iTunSMPB(item))
+            populate_itunes_metadata(item);
         lsmash_cleanup_itunes_metadata(&item);
     }
     fetch_chapters();
@@ -66,9 +67,6 @@ void M4ATrimmer::open_output(const std::string &filename)
         omp.timescale = m_input.track.timescale();
         DieIF(lsmash_set_movie_parameters(mov, &omp));
     }
-    for (size_t i = 0; i < m_itunes_metadata.size(); ++i)
-        lsmash_set_itunes_metadata(mov, m_itunes_metadata[i]);
-
     add_audio_track();
 }
 
@@ -124,8 +122,8 @@ void M4ATrimmer::select_chapter(unsigned nth)
     if (nth < m_input.chapters.size() - 1)
         end.value.seconds = m_input.chapters[nth + 1].first;
     select_cut_point(start, end);
-    write_title_tag(m_input.chapters[nth].second);
-    write_track_tag(nth + 1, m_input.chapters.size());
+    set_text_tag(ITUNES_METADATA_ITEM_TITLE, m_input.chapters[nth].second);
+    set_track_tag(nth + 1, m_input.chapters.size());
 }
 
 bool M4ATrimmer::copy_next_access_unit()
@@ -151,15 +149,18 @@ bool M4ATrimmer::copy_next_access_unit()
 
 void M4ATrimmer::finish_write(lsmash_adhoc_remux_callback cb, void *cookie)
 {
-    DieIF(lsmash_flush_pooled_samples(m_output.movie.get(),
-                                      m_output.track.id(), 1024));
+    lsmash_root_t *mov = m_output.movie.get();
+    DieIF(lsmash_flush_pooled_samples(mov, m_output.track.id(), 1024));
     if (m_output.track.edits.count() == 1)
-        write_iTunSMPB();
+        set_iTunSMPB();
+    for (auto e = m_itunes_metadata.begin(); e != m_itunes_metadata.end(); ++e)
+        lsmash_set_itunes_metadata(mov, e->second);
+
     lsmash_adhoc_remux_t param;
     param.func = cb;
     param.buffer_size = 4 * 1024 * 1024;
     param.param = cookie;
-    DieIF(lsmash_finish_movie(m_output.movie.get(), &param));
+    DieIF(lsmash_finish_movie(mov, &param));
 }
 
 uint32_t M4ATrimmer::find_aac_track()
@@ -291,8 +292,6 @@ void M4ATrimmer::populate_itunes_metadata(const lsmash_itunes_metadata_t &item)
 {
     lsmash_itunes_metadata_t res = item;
 
-    if (parse_iTunSMPB(item))
-        return;
     if (item.meaning)
         res.meaning = const_cast<char*>(m_pool.append(res.meaning));
     if (item.name)
@@ -308,7 +307,9 @@ void M4ATrimmer::populate_itunes_metadata(const lsmash_itunes_metadata_t &item)
         res.value.binary.data =
             reinterpret_cast<uint8_t*>(const_cast<char*>(d));
     }
-    m_itunes_metadata.push_back(res);
+    auto k = std::make_pair(res.item,
+                            res.name ? std::string(res.name) : std::string());
+    m_itunes_metadata[k] = res;
 }
 
 uint32_t M4ATrimmer::find_chapter_track()
@@ -385,16 +386,41 @@ void M4ATrimmer::add_audio_track()
     DieIF(!lsmash_add_sample_entry(mov, trakid, m_input.track.summary.get()));
 }
 
-void M4ATrimmer::write_title_tag(const std::string &title)
+void M4ATrimmer::set_text_tag(lsmash_itunes_metadata_item fcc,
+                              const std::string &s)
 {
     lsmash_itunes_metadata_t tag;
     memset(&tag, 0, sizeof tag);
-    tag.item = ITUNES_METADATA_ITEM_TITLE;
-    tag.value.string = const_cast<char *>(title.c_str());
-    lsmash_set_itunes_metadata(m_output.movie.get(), tag);
+    tag.item         = fcc;
+    tag.type         = ITUNES_METADATA_TYPE_STRING;
+    tag.value.string = const_cast<char *>(s.c_str());
+    populate_itunes_metadata(tag);
 }
 
-void M4ATrimmer::write_track_tag(unsigned index, unsigned total)
+void M4ATrimmer::set_custom_tag(const std::string &name,
+                                const std::string &value)
+{
+    lsmash_itunes_metadata_t tag;
+    memset(&tag, 0, sizeof tag);
+    tag.item         = ITUNES_METADATA_ITEM_CUSTOM;
+    tag.type         = ITUNES_METADATA_TYPE_STRING;
+    tag.meaning      = const_cast<char *>("com.apple.iTunes");
+    tag.name         = const_cast<char *>(name.c_str());
+    tag.value.string = const_cast<char *>(value.c_str());
+    populate_itunes_metadata(tag);
+}
+
+void M4ATrimmer::set_int_tag(lsmash_itunes_metadata_item fcc, uint64_t value)
+{
+    lsmash_itunes_metadata_t tag;
+    memset(&tag, 0, sizeof tag);
+    tag.item          = fcc;
+    tag.type          = ITUNES_METADATA_TYPE_INTEGER;
+    tag.value.integer = value;
+    populate_itunes_metadata(tag);
+}
+
+void M4ATrimmer::set_track_tag(unsigned index, unsigned total)
 {
     uint8_t data[8] = { 0 };
     data[2] = index >> 8;
@@ -404,14 +430,33 @@ void M4ATrimmer::write_track_tag(unsigned index, unsigned total)
 
     lsmash_itunes_metadata_t tag;
     memset(&tag, 0, sizeof tag);
-    tag.item = ITUNES_METADATA_ITEM_TRACK_NUMBER;
+    tag.item                 = ITUNES_METADATA_ITEM_TRACK_NUMBER;
+    tag.type                 = ITUNES_METADATA_TYPE_BINARY;
     tag.value.binary.subtype = ITUNES_METADATA_SUBTYPE_IMPLICIT;
-    tag.value.binary.size = 8;
-    tag.value.binary.data = data;
-    lsmash_set_itunes_metadata(m_output.movie.get(), tag);
+    tag.value.binary.size    = 8;
+    tag.value.binary.data    = data;
+    populate_itunes_metadata(tag);
 }
 
-void M4ATrimmer::write_iTunSMPB()
+void M4ATrimmer::set_disk_tag(unsigned index, unsigned total)
+{
+    uint8_t data[6] = { 0 };
+    data[2] = index >> 8;
+    data[3] = index & 0xff;
+    data[4] = total >> 8;
+    data[5] = total & 0xff;
+
+    lsmash_itunes_metadata_t tag;
+    memset(&tag, 0, sizeof tag);
+    tag.item                 = ITUNES_METADATA_ITEM_DISC_NUMBER;
+    tag.type                 = ITUNES_METADATA_TYPE_BINARY;
+    tag.value.binary.subtype = ITUNES_METADATA_SUBTYPE_IMPLICIT;
+    tag.value.binary.size    = 6;
+    tag.value.binary.data    = data;
+    populate_itunes_metadata(tag);
+}
+
+void M4ATrimmer::set_iTunSMPB()
 {
     const char *fmt = " 00000000 %08X %08X %08X%08X 00000000 00000000 "
         "00000000 00000000 00000000 00000000 00000000 00000000";
@@ -427,14 +472,6 @@ void M4ATrimmer::write_iTunSMPB()
     }
     std::sprintf(buf, fmt, offset, padding, int(duration >> 32),
                  int(duration & 0xffffffff));
-
-    lsmash_itunes_metadata_t tag;
-    memset(&tag, 0, sizeof tag);
-    tag.item = ITUNES_METADATA_ITEM_CUSTOM;
-    tag.type = ITUNES_METADATA_TYPE_STRING;
-    tag.meaning = const_cast<char *>("com.apple.iTunes");
-    tag.name = const_cast<char *>("iTunSMPB");
-    tag.value.string = buf;
-    lsmash_set_itunes_metadata(m_output.movie.get(), tag);
+    set_custom_tag("iTunSMPB", buf);
 }
 

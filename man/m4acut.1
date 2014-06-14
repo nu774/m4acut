@@ -31,7 +31,7 @@ Show version number
 .TP
 .B \-o, \-\-output
 Specify output filename.
-Ignored on chapter mode.
+Ignored when \-c/\-C is set.
 Otherwise required.
 .RS
 .RE
@@ -81,8 +81,21 @@ When not given, end of input is assumed.
 .B \-c, \-\-chapter\-mode
 Enables chapter mode.
 Splits automatically at each chapter point.
-You cannot use \-c and \-s/\-e at the same time.
 .RS
 .RE
+.TP
+.B \-C, \-\-cuesheet
+Specify cuesheet and split automatically at each track in it.
+.RS
+.RE
+.TP
+.B \-\-cuesheet\-encoding
+Specify character encoding name of cuesheet.
+By default, UTF\-8 is assumed.
+.RS
+.RE
+.PP
+\-c, \-C, and \-s/\-e are Mutually exclusive and cannot be set at the
+same time.
 .SH AUTHORS
 nu774 <honeycomb77@gmail.com>.

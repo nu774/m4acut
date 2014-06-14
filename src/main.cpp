@@ -12,11 +12,20 @@
 #include <string>
 #include <algorithm>
 #include <iterator>
+#include <fstream>
 #include <sstream>
 #include <iomanip>
 #include <getopt.h>
 #include "M4ATrimmer.h"
 #include "compat.h"
+#include "cuesheet.h"
+#if HAVE_ICONV
+# include "StringConverterIConv.h"
+#elif defined(_WIN32)
+# include "StringConverterWin32.h"
+#else
+# include "StringConverterUTF8.h"
+#endif
 #include "version.h"
 
 namespace {
@@ -24,6 +33,8 @@ namespace {
 struct params_t {
     const char *ifilename;
     const char *ofilename;
+    const char *cuesheet;
+    const char *cuesheet_encoding;
     TimeSpec start;
     TimeSpec end;
     bool chapter_mode;
@@ -73,7 +84,7 @@ void usage()
 " -h, --help             Print this help message\n"
 " -v, --version          Show version number\n"
 " -o, --output <file>    Specify output filename.\n"
-"                        Ignored if -c is specified, otherwise required.\n"
+"                        Ignored if -c/-C is specified, otherwise required.\n"
 " -s, --start <[[hh:]mm:]ss[.ss..]|ns>\n"
 "                        Specify cut start point in either time or number of\n"
 "                        samples.\n"
@@ -87,7 +98,10 @@ void usage()
 "                        When not given, end of input is assumed.\n"
 " -c, --chapter-mode     Split automatically at chapter points.\n"
 "                        Title tag and track tag are created from chapter.\n"
-"                        You cannot use -c and -s/-e at the same time.\n"
+" -C, --cuesheet <file>  Split automatically by cuesheet.\n"
+" --cuesheet-encoding <name>\n"
+"                        Specify character encoding of cuesheet.\n"
+"                        By default, UTF-8 is assumed.\n"
 " --fix-sbr-delay <1|-1>\n"
 "                        Modify media offset (delay) by the amount of\n"
 "                        SBR decoder delay (=481).\n"
@@ -99,18 +113,20 @@ void usage()
 bool parse_options(int argc, char **argv, params_t *params)
 {
     static option long_options[] = {
-        { "help",             no_argument,        0, 'h' },
-        { "version",          no_argument,        0, 'v' },
-        { "output",           required_argument,  0, 'o' },
-        { "start",            required_argument,  0, 's' },
-        { "end",              required_argument,  0, 'e' },
-        { "chapter-mode",     no_argument,        0, 'c' },
-        { "fix-sbr-delay",    required_argument,  0, 'F' },
-        {  0,                 0,                  0,  0  },
+        { "help",              no_argument,        0, 'h' },
+        { "version",           no_argument,        0, 'v' },
+        { "output",            required_argument,  0, 'o' },
+        { "start",             required_argument,  0, 's' },
+        { "end",               required_argument,  0, 'e' },
+        { "chapter-mode",      no_argument,        0, 'c' },
+        { "cuesheet",          required_argument,  0, 'C' },
+        { "cuesheet-encoding", required_argument,  0, 'E' },
+        { "fix-sbr-delay",     required_argument,  0, 'F' },
+        {  0,                  0,                  0,  0  },
     };
 
     int ch;
-    while ((ch = getopt_long(argc, argv, "hvo:s:e:c",
+    while ((ch = getopt_long(argc, argv, "hvo:s:e:cC:",
                              long_options, 0)) != EOF)
     {
         switch (ch) {
@@ -137,6 +153,12 @@ bool parse_options(int argc, char **argv, params_t *params)
         case 'c':
             params->chapter_mode = true;
             break;
+        case 'C':
+            params->cuesheet = optarg;
+            break;
+        case 'E':
+            params->cuesheet_encoding = optarg;
+            break;
         case 'F':
             if (std::sscanf(optarg, "%d", &params->sbr_delay_fix) != 1) {
                 std::fputs("ERROR: invalid arg for --fix-sbr-delay\n", stderr);
@@ -154,12 +176,15 @@ bool parse_options(int argc, char **argv, params_t *params)
         return usage(), false;
 
     params->ifilename = argv[0];
-    if (params->chapter_mode && (params->start.value.samples ||
-                                 params->end.value.samples)) {
-        std::fputs("ERROR: -c and -s/-e are mutually exclusive\n", stderr);
+    int ne = params->chapter_mode
+           + (params->start.value.samples || params->end.value.samples)
+           + (params->cuesheet != nullptr);
+    if (ne > 1) {
+        std::fputs("ERROR: -c , -C, and -s/-e are mutually exclusive\n",
+                   stderr);
         return false;
     }
-    if (!params->chapter_mode && !params->ofilename) {
+    if (!params->chapter_mode && !params->cuesheet && !params->ofilename) {
         std::fputs("ERROR: output filename is required\n", stderr);
         return false;
     }
@@ -183,6 +208,120 @@ void process_file(M4ATrimmer &trimmer)
     std::fputs("\r100%...done\n", stderr);
 }
 
+void set_tag(M4ATrimmer &trimmer, const std::string &k, const std::string &v)
+{
+    struct tag_item {
+        const char                 *name;
+        lsmash_itunes_metadata_item fcc;
+    } tag_items[] = {
+        { "ALBUM",          ITUNES_METADATA_ITEM_ALBUM_NAME   },
+        { "ALBUMARTIST",    ITUNES_METADATA_ITEM_ALBUM_ARTIST },
+        { "ARTIST",         ITUNES_METADATA_ITEM_ARTIST       },
+        { "DATE",           ITUNES_METADATA_ITEM_RELEASE_DATE },
+        { "DISC",           ITUNES_METADATA_ITEM_DISC_NUMBER  },
+        { "GENRE",          ITUNES_METADATA_ITEM_USER_GENRE   },
+        { "SONGWRITER",     ITUNES_METADATA_ITEM_COMPOSER     },
+        { "TITLE",          ITUNES_METADATA_ITEM_TITLE        },
+        { "TRACK",          ITUNES_METADATA_ITEM_TRACK_NUMBER },
+        { 0,                ITUNES_METADATA_ITEM_CUSTOM       }
+    };
+
+    lsmash_itunes_metadata_item fcc = ITUNES_METADATA_ITEM_CUSTOM;
+    for (tag_item *p = tag_items; p->name; ++p) {
+        if (k == p->name) {
+            fcc = p->fcc;
+            break;
+        }
+    }
+    switch (fcc) {
+    case ITUNES_METADATA_ITEM_ALBUM_NAME:
+    case ITUNES_METADATA_ITEM_ALBUM_ARTIST:
+    case ITUNES_METADATA_ITEM_ARTIST:
+    case ITUNES_METADATA_ITEM_RELEASE_DATE:
+    case ITUNES_METADATA_ITEM_USER_GENRE:
+    case ITUNES_METADATA_ITEM_COMPOSER:
+    case ITUNES_METADATA_ITEM_TITLE:
+        trimmer.set_text_tag(fcc, v);
+        break;
+    case ITUNES_METADATA_ITEM_DISC_NUMBER:
+        {
+            unsigned n, t = 0;
+            if (std::sscanf(v.c_str(), "%u/%u", &n, &t) > 0)
+                trimmer.set_disk_tag(n, t);
+        }
+        break;
+    case ITUNES_METADATA_ITEM_TRACK_NUMBER:
+        {
+            unsigned n, t = 0;
+            if (std::sscanf(v.c_str(), "%u/%u", &n, &t) > 0)
+                trimmer.set_track_tag(n, t);
+        }
+        break;
+    }
+}
+
+void process_cuesheet(M4ATrimmer &trimmer, const params_t &params)
+{
+    FILE *fp = aa_fopen(params.cuesheet, "r");
+    if (!fp)
+        throw_file_error(params.cuesheet, std::strerror(errno));
+    std::shared_ptr<FILE> __fp__(fp, std::fclose);
+
+    std::string data;
+    char buf[8192];
+    size_t n;
+    while ((n = std::fread(buf, 1, sizeof buf, fp)) > 0)
+        data.append(buf, n);
+    if (data.size() >= 3 && data.substr(0,3) == "\xef\xbb\xbf")
+        data = data.substr(3);
+
+    std::shared_ptr<IStringConverter> converter;
+    const char *encoding = params.cuesheet_encoding;
+    if (!encoding) encoding = "UTF-8";
+#if HAVE_ICONV
+    converter = std::make_shared<StringConverterIConv>("UTF-8", encoding);
+#elif defined(_WIN32)
+    converter = std::make_shared<StringConverterWin32>("UTF-8", encoding);
+#else
+    converter = std::make_shared<StringConverterUTF8();
+#endif
+    auto res = converter->convert(data, true);
+    if (!res.first) {
+        std::stringstream msg;
+        msg << "cuesheet isn't encoded with " << encoding 
+            << ", specify correct character encoding by --cuesheet-encoding";
+        throw std::runtime_error(msg.str());
+    }
+    std::stringstream ss(res.second);
+    CueSheet cuesheet;
+    cuesheet.parse(ss.rdbuf());
+    std::vector<std::pair<double, std::string>> chapters;
+    cuesheet.as_chapters(static_cast<double>(trimmer.duration())/
+                         trimmer.timescale(), &chapters);
+    size_t i = 0;
+    double dts = 0.0;
+    for (auto track = cuesheet.begin(); track != cuesheet.end(); ++track) {
+        double duration = chapters[i++].first;
+        std::map<std::string, std::string> tags;
+        track->get_tags(&tags);
+        for (auto t = tags.begin(); t != tags.end(); ++t)
+            set_tag(trimmer, t->first, t->second);
+        std::stringstream name;
+        name << std::setfill('0') << std::setw(2) << track->number();
+        if (!track->name().empty())
+            name << ' ' << safe_filename(track->name()) << ".m4a";
+        aa_fprintf(stderr, "%s\n", name.str().c_str());
+        trimmer.open_output(name.str());
+        TimeSpec beg, end;
+        beg.is_samples    = end.is_samples = false;
+        beg.value.seconds = dts;
+        end.value.seconds = dts + duration;
+        dts += duration;
+        trimmer.select_cut_point(beg, end);
+        process_file(trimmer);
+    }
+}
+
 } // end of empty namespace
 
 int main(int argc, char **argv)
@@ -199,11 +338,9 @@ int main(int argc, char **argv)
         trimmer.open_input(params.ifilename);
         if (params.sbr_delay_fix)
             trimmer.shift_edits(params.sbr_delay_fix * 481);
-        if (!params.chapter_mode) {
-            trimmer.open_output(params.ofilename);
-            trimmer.select_cut_point(params.start, params.end);
-            process_file(trimmer);
-        } else {
+        if (params.cuesheet)
+            process_cuesheet(trimmer, params);
+        else if (params.chapter_mode) {
             auto chapters = trimmer.chapters();
             if (!chapters.size())
                 throw std::runtime_error("no chapters in the file");
@@ -216,6 +353,10 @@ int main(int argc, char **argv)
                 trimmer.select_chapter(i);
                 process_file(trimmer);
             }
+        } else {
+            trimmer.open_output(params.ofilename);
+            trimmer.select_cut_point(params.start, params.end);
+            process_file(trimmer);
         }
     } catch (std::exception &e) {
         aa_fprintf(stderr, "\r%s\n", e.what());

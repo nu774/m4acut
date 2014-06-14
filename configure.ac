@@ -21,7 +21,8 @@ AC_CHECK_TYPES([struct __timeb64],[],[],[[#include <sys/timeb.h>]])
 AM_CONDITIONAL([AAC_NO_GETOPT_LONG],[test "$ac_cv_func_getopt_long" != "yes"])
 AC_SEARCH_LIBS([lsmash_get_tyrant_chapter],[lsmash],,
                [AC_MSG_ERROR(L-SMASH version 1.10.0 or greater required)])
-
+AM_ICONV
+AM_CONDITIONAL([AAC_HAVE_ICONV],[test "$am_cv_func_iconv" = "yes"])
 AC_CANONICAL_HOST
 
 X_PLATFORM=posix

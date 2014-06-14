@@ -84,16 +84,20 @@
   <ItemGroup>
     <ClCompile Include="..\missings\getopt.c" />
     <ClCompile Include="..\src\compat_win32.c" />
+    <ClCompile Include="..\src\cuesheet.cpp" />
     <ClCompile Include="..\src\M4ATrimmer.cpp" />
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\MP4Edits.cpp" />
+    <ClCompile Include="..\src\StringConverterWin32.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\missings\getopt.h" />
     <ClInclude Include="..\src\compat.h" />
+    <ClInclude Include="..\src\cuesheet.h" />
     <ClInclude Include="..\src\die.h" />
     <ClInclude Include="..\src\M4ATrimmer.h" />
     <ClInclude Include="..\src\MP4Edits.h" />
+    <ClInclude Include="..\src\StringConverterWin32.h" />
     <ClInclude Include="..\src\version.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
