@@ -40,6 +40,8 @@ namespace {
             { "xeuctw",       51950 },
             { "hzgb2312",     52936 },
             { "gb18030",      54936 },
+            { "utf7",         65000 },
+            { "utf8",         65001 },
             { 0,              0     }
         };
         std::string ss = cleanse_charset_name(s);
@@ -54,10 +56,6 @@ namespace {
             return cp;
         else if (std::sscanf(ss.c_str(), "iso8859%u", &cp) == 1)
             return cp + 28590;
-        else if (ss == "utf7")
-            return 65000;
-        else if (ss == "utf8")
-            return 65001;
         else {
             for (codepage_entry *p = codepages; p->name; ++p)
                 if (ss == p->name)
