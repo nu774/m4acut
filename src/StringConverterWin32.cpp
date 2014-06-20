@@ -55,8 +55,11 @@ namespace {
         else if (std::sscanf(ss.c_str(), "windows%u", &cp) == 1)
             return cp;
         else if (std::sscanf(ss.c_str(), "iso8859%u", &cp) == 1)
-            return cp + 28590;
-        else {
+            return (cp > 0 && cp < 16) ? cp + 28590 : 0;
+        else if (std::sscanf(ss.c_str(), "latin%u", &cp) == 1) {
+            unsigned iso[] = { 0, 1, 2, 3, 4, 9, 10, 13, 14, 15 };
+            return (cp > 0 && cp < 10) ? iso[cp] + 28590: 0;
+        } else {
             for (codepage_entry *p = codepages; p->name; ++p)
                 if (ss == p->name)
                     return p->codepage;
