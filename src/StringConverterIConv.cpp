@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <vector>
 #include <cerrno>
 #include <stdexcept>
