@@ -25,8 +25,8 @@ StringConverterIConv::convert(const std::string &s, bool flush)
     char  *op    = dest.data();
     bool   res   = true;
 
-    while (iconv(static_cast<iconv_t>(m_handle.get()),
-                 &ip, &iblen, &op, &oblen) == -1) {
+    while (int(iconv(static_cast<iconv_t>(m_handle.get()),
+                 &ip, &iblen, &op, &oblen)) == -1) {
         if (errno == E2BIG) {
             ptrdiff_t off = op - dest.data();
             dest.resize(dest.size() * 2);
@@ -42,7 +42,7 @@ StringConverterIConv::convert(const std::string &s, bool flush)
             break;
     }
     ptrdiff_t off = ip - m_remainder.data();
-    if (off == m_remainder.size())
+    if (off == int(m_remainder.size()))
         m_remainder.clear();
     else
         m_remainder = m_remainder.substr(off);

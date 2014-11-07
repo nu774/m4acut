@@ -80,7 +80,7 @@ void M4ATrimmer::select_cut_point(const TimeSpec &startspec,
         endspec.value.samples >> m_input.track.upsampled
       : endspec.value.seconds * m_input.track.timescale() + .5;
 
-    if (start > m_input.track.duration())
+    if (start > int64_t(m_input.track.duration()))
         throw std::runtime_error("the start position for trimming exceeds "
                                  "the length of input");
     if (end <= 0)

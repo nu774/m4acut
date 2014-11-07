@@ -19,7 +19,8 @@ namespace {
 std::pair<bool, std::string>
 StringConverterUTF8::convert(const std::string &s, bool flush)
 {
-    const char *p, *end = s.data() + s.size();
+    const char *end = s.data() + s.size();
+    const char *p = s.data() + s.size();
     std::string dest;
     bool good = true;
     unsigned char c;
