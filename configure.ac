@@ -20,7 +20,8 @@ LT_INIT
 # Checks for libraries and header files.
 AC_CHECK_HEADERS([fcntl.h stdint.h stdlib.h string.h sys/time.h sys/timeb.h])
 AC_LANG([C++])
-#AX_CXX_COMPILE_STDCXX_11(noext,mandatory)
+AX_CXX_COMPILE_STDCXX_11(noext,optional)
+AS_IF([test -z $HAVE_CXX11],[CXXFLAGS="$CXXFLAGS -std=c++0x"])
 AM_CONDITIONAL([AAC_NO_GETOPT_LONG],[test "$ac_cv_func_getopt_long" != "yes"])
 AC_SEARCH_LIBS([lsmash_get_tyrant_chapter],[lsmash],,
                [AC_MSG_ERROR(L-SMASH version 1.10.0 or greater required)])
