@@ -1,4 +1,4 @@
-AM_CXXFLAGS = -Wall -std=c++0x
+AM_CXXFLAGS = -Wall
 AM_CFLAGS   = -Wall
 
 ACLOCAL_AMFLAGS = -I m4
