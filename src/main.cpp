@@ -284,7 +284,7 @@ void process_cuesheet(M4ATrimmer &trimmer, const params_t &params)
 #elif defined(_WIN32)
     converter = std::make_shared<StringConverterWin32>("UTF-8", encoding);
 #else
-    converter = std::make_shared<StringConverterUTF8();
+    converter = std::make_shared<StringConverterUTF8>();
 #endif
     auto res = converter->convert(data, true);
     if (!res.first) {
