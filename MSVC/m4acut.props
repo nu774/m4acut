@@ -2,13 +2,17 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros">
+    <LSMASH_CPPFLAGS>LSMASH_API_IMPORTS</LSMASH_CPPFLAGS>
     <LSMASH_INCLUDE />
-    <LSMASH_LIB>lsmash.lib</LSMASH_LIB>
+    <LSMASH_LIB>liblsmash.lib</LSMASH_LIB>
     <LSMASH_LIBDIR />
   </PropertyGroup>
   <PropertyGroup />
   <ItemDefinitionGroup />
   <ItemGroup>
+    <BuildMacro Include="LSMASH_CPPFLAGS">
+      <Value>$(LSMASH_CPPFLAGS)</Value>
+    </BuildMacro>
     <BuildMacro Include="LSMASH_INCLUDE">
       <Value>$(LSMASH_INCLUDE)</Value>
     </BuildMacro>
