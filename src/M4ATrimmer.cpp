@@ -7,6 +7,7 @@
 #endif
 #include "M4ATrimmer.h"
 #include <sstream>
+#include <algorithm>
 
 void M4ATrimmer::open_input(const std::string &filename)
 {
