@@ -18,14 +18,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-typedef struct
-{
-    int newmode;
-} _startupinfo;
-
-extern
-int __wgetmainargs(int *, wchar_t ***, wchar_t ***, int, _startupinfo *);
-
 int64_t aa_timer(void)
 {
 #if HAVE_STRUCT___TIMEB64
@@ -72,19 +64,14 @@ void free_mainargs(void)
 
 void aa_getmainargs(int *argc, char ***argv)
 {
-    static int (*fp__wgetmainargs)(int *, wchar_t ***, wchar_t ***,
-                                   int, _startupinfo *);
     int i;
-    wchar_t **wargv, **envp;
-    _startupinfo si = { 0 };
-    HMODULE h = LoadLibraryA("msvcrt.dll");
-    fp__wgetmainargs = (void *)GetProcAddress(h, "__wgetmainargs");
-    (*fp__wgetmainargs)(argc, &wargv, &envp, 1, &si);
-    FreeLibrary(h);
+    wchar_t **wargv;
 
+    wargv = CommandLineToArgvW(GetCommandLineW(), argc);
     *argv = malloc((*argc + 1) * sizeof(char*));
     for (i = 0; i < *argc; ++i)
         codepage_encode_wchar(CP_UTF8, wargv[i], &(*argv)[i]);
+        LocalFree(wargv);
     (*argv)[*argc] = 0;
     __utf8_argv__ = *argv;
     atexit(free_mainargs);
