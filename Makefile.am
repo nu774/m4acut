@@ -11,6 +11,7 @@ dist_man_MANS = man/m4acut.1
 m4acut_SOURCES = src/M4ATrimmer.cpp \
 		 src/MP4Edits.cpp \
 		 src/StringConverterUTF8.cpp \
+		 src/bitstream.cpp \
 		 src/cuesheet.cpp \
 		 src/main.cpp
 

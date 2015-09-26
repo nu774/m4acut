@@ -61,6 +61,9 @@ class M4ATrimmer {
         lsmash_track_parameters_t track_params;
         lsmash_media_parameters_t media_params;
         std::shared_ptr<lsmash_summary_t> summary;
+        uint8_t aot;
+        uint32_t sample_rate;
+        uint32_t frames_per_packet;
         uint8_t  upsampled;             /*
                                          * 1: dual-rate SBR is stored in
                                          *    upsampled timescale
@@ -76,12 +79,19 @@ class M4ATrimmer {
         uint32_t id() const { return track_params.track_ID; }
         uint32_t timescale() const
         {
-            return media_params.timescale >> upsampled;
+            return media_params.timescale;
+        }
+        uint32_t access_unit_size() const
+        {
+            return uint32_t(double(frames_per_packet) * timescale()
+                            / sample_rate + .5);
         }
         uint64_t num_access_units() const
         {
-            return ((media_params.duration >> upsampled) + 1023) / 1024;
+            uint32_t au_size = access_unit_size();
+            return (media_params.duration + au_size - 1) / au_size;
         }
+        // duration in track timescale
         uint64_t duration() const
         {
             return edits.total_duration();
@@ -148,7 +158,7 @@ public:
     void shift_edits(int64_t offset)
     {
         Track &t = m_input.track;
-        t.edits.shift(offset, t.media_params.duration >> t.upsampled);
+        t.edits.shift(offset, t.media_params.duration);
     }
     void set_text_tag(lsmash_itunes_metadata_item fcc, const std::string &s);
     void set_custom_tag(const std::string &name, const std::string &value);
@@ -164,7 +174,6 @@ private:
     }
     uint32_t find_aac_track();
     void fetch_track_info(Track *t, uint32_t track_id);
-    uint32_t retrieve_au_duration(uint32_t track_id);
     bool parse_iTunSMPB(const lsmash_itunes_metadata_t &item);
     void populate_itunes_metadata(const lsmash_itunes_metadata_t &item);
     void fetch_chapters()

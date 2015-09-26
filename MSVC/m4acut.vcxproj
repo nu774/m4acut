@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -85,6 +85,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\missings\getopt.c" />
+    <ClCompile Include="..\src\bitstream.cpp" />
     <ClCompile Include="..\src\compat_win32.c" />
     <ClCompile Include="..\src\cuesheet.cpp" />
     <ClCompile Include="..\src\M4ATrimmer.cpp" />
@@ -94,6 +95,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\missings\getopt.h" />
+    <ClInclude Include="..\src\bitstream.h" />
     <ClInclude Include="..\src\compat.h" />
     <ClInclude Include="..\src\cuesheet.h" />
     <ClInclude Include="..\src\die.h" />
