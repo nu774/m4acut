@@ -30,14 +30,6 @@ AM_CONDITIONAL([AAC_HAVE_ICONV],[test "$am_cv_func_iconv" = "yes"])
 AC_CANONICAL_HOST
 
 # Checks for typedefs, structures, and compiler characteristics.
-AC_CHECK_HEADER_STDBOOL
-AC_C_INLINE
-AC_TYPE_INT32_T
-AC_TYPE_INT64_T
-AC_TYPE_SIZE_T
-AC_TYPE_UINT32_T
-AC_TYPE_UINT64_T
-AC_TYPE_UINT8_T
 AC_CHECK_TYPES([ptrdiff_t])
 AC_CHECK_TYPES([struct __timeb64],[],[],[[#include <sys/timeb.h>]])
 
