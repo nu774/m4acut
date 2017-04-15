@@ -24,6 +24,10 @@ AX_CXX_COMPILE_STDCXX_11(noext,optional)
 AS_IF([test -z $HAVE_CXX11],[CXXFLAGS="$CXXFLAGS -std=c++0x"])
 AC_SEARCH_LIBS([lsmash_get_tyrant_chapter],[lsmash],,
                [AC_MSG_ERROR(L-SMASH version 1.10.0 or greater required)])
+AC_CHECK_MEMBER([lsmash_media_parameters_t.compact_sample_size_table],
+                [AC_DEFINE_UNQUOTED([HAVE_COMPACT_SAMPLE_SIZE_TABLE],[1],
+                                    [have compact_sample_size_table field])],
+                [],[[#include <lsmash.h>]])
 AM_ICONV
 AM_CONDITIONAL([AAC_HAVE_ICONV],[test "$am_cv_func_iconv" = "yes"])
 AC_CANONICAL_HOST

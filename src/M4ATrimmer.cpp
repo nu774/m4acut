@@ -456,6 +456,9 @@ void M4ATrimmer::add_audio_track()
     lsmash_root_t *mov = m_output.movie.get();
     m_output.track.track_params = m_input.track.track_params;
     m_output.track.media_params = m_input.track.media_params;
+#if HAVE_COMPACT_SAMPLE_SIZE_TABLE
+    m_output.track.media_params.compact_sample_size_table = 0;
+#endif
 
     uint32_t trakid;
     DieIF(!(trakid =
