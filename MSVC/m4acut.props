@@ -2,7 +2,7 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros">
-    <LSMASH_CPPFLAGS>LSMASH_API_IMPORTS</LSMASH_CPPFLAGS>
+    <LSMASH_CPPFLAGS>LSMASH_API_IMPORTS;HAVE_COMPACT_SAMPLE_SIZE_TABLE</LSMASH_CPPFLAGS>
     <LSMASH_INCLUDE />
     <LSMASH_LIB>liblsmash.lib</LSMASH_LIB>
     <LSMASH_LIBDIR />
